@@ -1,11 +1,24 @@
-import { Button } from "@/components/ui/button";
-import React from "react";
+import BookCard from "@/components/BookCard";
+import HeroSection from "@/components/HeroSection";
+import { sampleBooks } from "@/lib/constants";
 
 const Home = () => {
   return (
-    <div>
-      <h1 className="text-3xl text-red-600">Welcome Bookified !</h1>
-    </div>
+    <main className="wrapper container">
+      <HeroSection />
+
+      <div className="library-books-grid">
+        {sampleBooks.map((book) => (
+          <BookCard
+            key={book._id}
+            title={book.title}
+            author={book.author}
+            coverURL={book.coverURL}
+            slug={book.slug}
+          />
+        ))}
+      </div>
+    </main>
   );
 };
 

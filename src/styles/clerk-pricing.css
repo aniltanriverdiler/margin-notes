@@ -1,0 +1,17 @@
+/* Scoped overrides for Clerk <PricingTable /> — warm literary palette (see globals.css) */
+.subscriptions-pricing-area {
+  --clerk-pricing-primary: #212a3b;
+  --clerk-pricing-muted: #3d485e;
+  --clerk-pricing-bg: #ffffff;
+  --clerk-pricing-page-bg: #f8f4e9;
+  --clerk-pricing-accent-bg: #fff6e5;
+  --clerk-pricing-border: rgba(33, 42, 59, 0.12);
+}
+
+.subscriptions-pricing-area [data-clerk-element="pricingTable"] {
+  font-family: var(--font-mona-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+.subscriptions-pricing-area [data-clerk-element="pricingTable"] * {
+  border-color: var(--clerk-pricing-border);
+}

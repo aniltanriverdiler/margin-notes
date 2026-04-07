@@ -1,10 +1,14 @@
 "use server";
 
+import { auth } from "@clerk/nextjs/server";
 import { EndSessionResult, StartSessionResult } from "@/types";
 import { connectToDatabase } from "@/database/mongoose";
 import VoiceSession from "@/database/models/voice-session.model";
-import { getCurrentBillingPeriodStart } from "@/lib/subscription-constants";
-import { success } from "zod";
+import {
+  getCurrentBillingPeriodStart,
+  PLAN_LIMITS,
+} from "@/lib/subscription-constants";
+import { getUserPlan } from "@/lib/subscription.server";
 
 // Start a voice session action
 export const startVoiceSession = async (
@@ -14,10 +18,10 @@ export const startVoiceSession = async (
   try {
     await connectToDatabase();
 
-    // Limits/Plan to see whether a session is allowed
-    const { getUserPlan } = await import("@/lib/subscription.server");
-    const { PLAN_LIMITS, getCurrentBillingPeriodStart } =
-      await import("@/lib/subscription-constants");
+    const { userId } = await auth();
+    if (!userId || userId !== clerkId) {
+      return { success: false, error: "Unauthorized" };
+    }
 
     const plan = await getUserPlan();
     const limits = PLAN_LIMITS[plan];
@@ -28,13 +32,11 @@ export const startVoiceSession = async (
       billingPeriodStart,
     });
 
-    if (sessionCount >= limits.maxSessionsPerMonth) {
-      const { revalidatePath } = await import("next/cache");
-      revalidatePath("/");
-
+    const monthlyCap = limits.maxSessionsPerMonth;
+    if (Number.isFinite(monthlyCap) && sessionCount >= monthlyCap) {
       return {
         success: false,
-        error: `You have reached the monthly session limit for your ${plan} plan (${limits.maxSessionsPerMonth}). Please upgrade for more sessions.`,
+        error: `You have reached the monthly session limit for your ${plan} plan (${monthlyCap}). Please upgrade for more sessions.`,
         isBillingError: true,
       };
     }

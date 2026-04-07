@@ -4,6 +4,15 @@ export const PLANS = {
   PRO: "pro",
 } as const;
 
+/** Clerk Dashboard billing plan slugs (paid tiers). */
+export const CLERK_BILLING_PLAN_SLUGS = {
+  STANDARD: "standard",
+  PRO: "pro",
+} as const;
+
+export type ClerkBillingPlanSlug =
+  (typeof CLERK_BILLING_PLAN_SLUGS)[keyof typeof CLERK_BILLING_PLAN_SLUGS];
+
 export type PlanType = (typeof PLANS)[keyof typeof PLANS];
 
 export interface PlanLimits {

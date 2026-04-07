@@ -1,48 +1,52 @@
 "use client";
 
-import { useAuth, useUser } from "@clerk/nextjs";
-import { PLANS, PLAN_LIMITS, PlanType } from "@/lib/subscription-constants";
+import { useAuth } from "@clerk/nextjs";
+import { useMemo } from "react";
+import {
+  PLANS,
+  PLAN_LIMITS,
+  type PlanType,
+} from "@/lib/subscription-constants";
+import {
+  resolvePlanFromHas,
+  type ClerkSessionHas,
+} from "@/lib/subscription-plan";
 
-export const useSubscription = () => {
-  const { has, isLoaded: isAuthLoaded } = useAuth();
-  const { user, isLoaded: isUserLoaded } = useUser();
-
-  const isLoaded = isAuthLoaded && isUserLoaded;
-
-  if (!isLoaded) {
-    return {
-      plan: PLANS.FREE,
-      limits: PLAN_LIMITS[PLANS.FREE],
-      isLoaded: false,
-    };
-  }
-
-  let plan: PlanType = PLANS.FREE;
-
-  // 1. First Check: Clerk's `has` helper from useAuth
-  if (has?.({ product: "pro" }) || has?.({ plan: "pro" })) {
-    plan = PLANS.PRO;
-  } else if (has?.({ product: "standard" }) || has?.({ plan: "standard" })) {
-    plan = PLANS.STANDARD;
-  }
-  // 2. Second Check: Fallback to user public metadata if `has` fails (caching issue)
-  else {
-    const metadataPlan = (
-      user?.publicMetadata?.plan || user?.publicMetadata?.billingPlan
-    )
-      ?.toString()
-      .toLowerCase();
-
-    if (metadataPlan === "pro") {
-      plan = PLANS.PRO;
-    } else if (metadataPlan === "standard") {
-      plan = PLANS.STANDARD;
+export type UseSubscriptionResult =
+  | {
+      isLoaded: false;
+      plan: PlanType;
+      limits: (typeof PLAN_LIMITS)[PlanType];
+      has: ClerkSessionHas | undefined;
     }
-  }
+  | {
+      isLoaded: true;
+      plan: PlanType;
+      limits: (typeof PLAN_LIMITS)[PlanType];
+      has: ClerkSessionHas;
+    };
 
-  return {
-    plan,
-    limits: PLAN_LIMITS[plan],
-    isLoaded: true,
-  };
-};
+// Client-side plan + limits using Clerk `useAuth().has({ plan })`, aligned with `getUserPlan()` on the server.
+export function useSubscription(): UseSubscriptionResult {
+  const { has, userId, isLoaded: isAuthLoaded } = useAuth();
+
+  return useMemo(() => {
+    if (!isAuthLoaded) {
+      return {
+        isLoaded: false,
+        plan: PLANS.FREE,
+        limits: PLAN_LIMITS[PLANS.FREE],
+        has: has as ClerkSessionHas | undefined,
+      };
+    }
+
+    const plan = resolvePlanFromHas(has, userId);
+
+    return {
+      isLoaded: true,
+      plan,
+      limits: PLAN_LIMITS[plan],
+      has,
+    };
+  }, [isAuthLoaded, has, userId]);
+}

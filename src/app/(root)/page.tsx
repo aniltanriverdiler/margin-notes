@@ -4,6 +4,9 @@ import BookCard from "@/components/BookCard";
 import { getAllBooks } from "@/lib/actions/book.actions";
 import Search from "@/components/Search";
 
+/** Always fetch fresh library data (avoid stale static shell hiding new uploads). */
+export const dynamic = "force-dynamic";
+
 const Page = async ({
   searchParams,
 }: {

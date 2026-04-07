@@ -28,6 +28,7 @@ import { useAuth, useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 import {
   checkBookExists,
+  checkBookQuota,
   createBook,
   saveBookSegments,
 } from "@/lib/actions/book.actions";
@@ -72,6 +73,15 @@ const UploadForm = () => {
         toast.info("Book with same title already exists.");
         form.reset();
         router.push(`/books/${existsCheck.book.slug}`);
+        return;
+      }
+
+      const quota = await checkBookQuota();
+      if (!quota.success) {
+        toast.error(quota.error ?? "Cannot add more books.");
+        if (quota.isBillingError) {
+          router.push("/subscriptions");
+        }
         return;
       }
 
@@ -157,7 +167,8 @@ const UploadForm = () => {
       }
 
       form.reset();
-      router.push("/");
+      await router.push("/");
+      router.refresh();
     } catch (error) {
       console.error(error);
 

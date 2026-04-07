@@ -1,15 +1,10 @@
 import { auth } from "@clerk/nextjs/server";
-import { PLANS, PLAN_LIMITS, PlanType } from "@/lib/subscription-constants";
+import { PLAN_LIMITS, type PlanType } from "@/lib/subscription-constants";
+import { resolvePlanFromHas } from "@/lib/subscription-plan";
 
 export const getUserPlan = async (): Promise<PlanType> => {
   const { has, userId } = await auth();
-
-  if (!userId) return PLANS.FREE;
-
-  if (has({ plan: "pro" })) return PLANS.PRO;
-  if (has({ plan: "standard" })) return PLANS.STANDARD;
-
-  return PLANS.FREE;
+  return resolvePlanFromHas(has, userId);
 };
 
 export const getPlanLimits = async () => {

@@ -1,11 +1,14 @@
 "use server";
 
+import { auth } from "@clerk/nextjs/server";
+import { revalidatePath, unstable_noStore as noStore } from "next/cache";
 import { CreateBook, TextSegment } from "@/types";
 import { connectToDatabase } from "@/database/mongoose";
 import { escapeRegex, generateSlug, serializeData } from "@/lib/utils";
 import Book from "@/database/models/book.model";
 import BookSegment from "@/database/models/book-segment.model";
 import mongoose from "mongoose";
+import { PLAN_LIMITS } from "@/lib/subscription-constants";
 import { getUserPlan } from "@/lib/subscription.server";
 
 /**
@@ -17,6 +20,7 @@ import { getUserPlan } from "@/lib/subscription.server";
  */
 // Get all books
 export const getAllBooks = async (search?: string) => {
+  noStore();
   try {
     await connectToDatabase();
 
@@ -79,6 +83,42 @@ export const checkBookExists = async (title: string) => {
 };
 
 /**
+ * Returns whether the signed-in user may create another book (plan + current count).
+ * Call this before uploading blobs so we fail fast without orphan files.
+ */
+export const checkBookQuota = async (): Promise<{
+  success: boolean;
+  error?: string;
+  isBillingError?: boolean;
+}> => {
+  try {
+    await connectToDatabase();
+
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const plan = await getUserPlan();
+    const limits = PLAN_LIMITS[plan];
+    const bookCount = await Book.countDocuments({ clerkId: userId });
+
+    if (bookCount >= limits.maxBooks) {
+      return {
+        success: false,
+        error: `You have reached the maximum number of books allowed for your ${plan} plan (${limits.maxBooks}). Please upgrade to add more books.`,
+        isBillingError: true,
+      };
+    }
+
+    return { success: true };
+  } catch (e) {
+    console.error("Error checking book quota", e);
+    return { success: false, error: "Could not verify book quota." };
+  }
+};
+
+/**
  * Creates a new book in the database.
  * Generates a slug from the title and checks if it is unique.
  * Checks subscription limits before creating a book.
@@ -101,11 +141,6 @@ export const createBook = async (data: CreateBook) => {
       };
     }
 
-    // Todo: Check subscription limits before creating a book
-    const { getUserPlan } = await import("@/lib/subscription.server");
-    const { PLAN_LIMITS } = await import("@/lib/subscription-constants");
-
-    const { auth } = await import("@clerk/nextjs/server");
     const { userId } = await auth();
 
     if (!userId || userId !== data.clerkId) {
@@ -118,9 +153,6 @@ export const createBook = async (data: CreateBook) => {
     const bookCount = await Book.countDocuments({ clerkId: userId });
 
     if (bookCount >= limits.maxBooks) {
-      const { revalidatePath } = await import("next/cache");
-      revalidatePath("/");
-
       return {
         success: false,
         error: `You have reached the maximum number of books allowed for your ${plan} plan (${limits.maxBooks}). Please upgrade to add more books.`,
@@ -134,6 +166,9 @@ export const createBook = async (data: CreateBook) => {
       slug,
       totalSegments: 0,
     });
+
+    revalidatePath("/");
+    revalidatePath("/books/new");
 
     return {
       success: true,
@@ -209,6 +244,8 @@ export const saveBookSegments = async (
     await Book.findByIdAndUpdate(bookId, { totalSegments: segments.length });
 
     console.log("Book segments saved successfully");
+
+    revalidatePath("/");
 
     return {
       success: true,

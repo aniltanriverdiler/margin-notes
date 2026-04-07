@@ -57,7 +57,7 @@ export type CallStatus =
 export function useVapi(book: IBook) {
   const { userId } = useAuth();
   const { limits } = useSubscription();
- 
+
   const [status, setStatus] = useState<CallStatus>("idle");
   const [messages, setMessages] = useState<Messages[]>([]);
   const [currentMessage, setCurrentMessage] = useState("");
